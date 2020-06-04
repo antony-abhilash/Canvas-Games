@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+	<meta charset="UTF-8">
+  <meta name="description" content="Free Web tutorials">
+  <meta name="keywords" content="HTML,CSS,XML,JavaScript">
+  <meta name="author" content="John Doe">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+    </style>
+
+  
+	<title></title>
+</head>
+<body>
+    
+    <canvas id="canvas" width="800" height="600" >
+
+        
+    </canvas>
+    
+    
+
+    <script>
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        document.addEventListener('keydown',keyDown);
+        document.addEventListener('keyup',keyUp);
+
+
+        var FPS = 30;
+        var vel; // direction for the movement of the basket
+        var basketSpeed = 12; // px per frame
+        var decel = 3 ;// deceleration factor 
+
+        var basketX = canvas.width/2; // centre of the basket
+        var basketWidth = 100;
+        var basketHeight = 20;
+
+        var fallInterval = 1;   var FALLINTER = 3; // new  elements appear per <num> second
+        var fallSpeed = 10; //px perfame
+        var falArray = [];
+        var falArrayGreen = [];
+        var ballrad = 15;
+        var ballYpos= 0 + ballrad;
+        var ballXpos;
+
+        var score = 0;
+        const SAVE_KEY_SCORE = "CATCH_SCORE";//save key for local storage of high score     
+        var highScore;
+
+        var newgame  =  false;
+        var gameLives = 3;
+        var gameLifeSize = 10;
+        var homeScreen = true; 
+        var homeScreenTimer = 2; // in seconds
+        var counter = homeScreenTimer * FPS;
+        var endCounter = homeScreenTimer * FPS;
+
+        setInterval(  update, 1000/FPS );
+
+
+
+    function update()
+    {  
+        var scoreString = localStorage.getItem(SAVE_KEY_SCORE);
+            if(scoreString == null)
+            {
+                highScore =0;
+            } else highScore =  parseInt(scoreString);
+
+
+       ctx.fillStyle = 'black';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      
+
+        if(homeScreen  && gameLives > 0)  // first homescreen ... toplay screen in 5 secs
+        { ctx.fillStyle = 'salmon';
+          ctx.font =  '40px Lucida Console';
+          ctx.fillText("Welcome to catch Game ",150,100);
+          ctx.fillStyle = 'green';
+          ctx.font =  '25px Lucida Console';
+          ctx.fillText("catch green",250,200);
+          ctx.fillStyle = 'red';
+          ctx.fillText("avoid red ",450,200);
+
+         
+          if(counter > 0 ) {counter--;}
+          else if( counter <= 0) { homeScreen =  false;}
+           var text  = Math.floor(counter/30);
+          ctx.fillStyle = 'salmon';
+          ctx.font =  '20px Lucida Console';
+          ctx.fillText("Game starts in " + text ,280,400);
+
+
+        }
+
+        else             
+        if(!newgame && gameLives > 0 &&!homeScreen)
+     {
+        
+        for(var i = 0 ; i< gameLives; i++)
+      {
+            ctx.fillStyle = 'red';
+            ctx.beginPath();
+            ctx.arc( canvas.width - gameLifeSize*i*3 - gameLifeSize*2, gameLifeSize*2 ,gameLifeSize,0,Math.PI*2,false);
+            
+            ctx.fill();
+            ctx.closePath();
+    
+      }
+    
+          drawBasket();
+
+          // ********************************  MOVE BASKET *************************************************
+          if(vel == -1)
+          { basketX -= basketSpeed;}
+          else if(vel == 1  )  
+          { basketX += basketSpeed; }
+          else if ( vel ==0)
+          {   if(decel > 0 ? decel+= 0.5 : decel-=0.5)
+              basketX += basketSpeed / decel;
+                
+          }
+
+          // ************************************ HANDLE SCREEN EDGEs *****************************************
+          if( basketX < -basketWidth) { basketX=canvas.width + basketWidth/2;}
+          else if( basketX - basketWidth/2> canvas.width) {basketX = -basketWidth;}
+
+          // ************************************ add elements to the falling array red /  green *****************************************
+          if(fallInterval * FPS > 0)
+          {fallInterval-= 1/FPS}
+          else
+            {   ballXpos = Math.random() * (canvas.width);   
+                if( ballXpos < 100) { ballXpos+= 100;}
+                if( ballXpos > 700) { ballXpos-=100}
+                 if(Math.random() > 0.5)  
+                    
+                  {      falArray.push(
+                         {x:ballXpos,
+                         y:ballYpos
+                         });
+                  }
+                      else
+                     {
+                        falArrayGreen.push(
+                        {x:ballXpos,
+                         y:ballYpos
+                        } );
+
+                     }
+            
+            fallInterval = FALLINTER; //re assign fall interval value
+          }
+         // ************************************ draw red balls  *****************************************
+
+          for( var i = 0; i < falArray.length; i++)
+          {  
+              drawBalls(falArray[i].x , falArray[i].y,'red'); }
+                
+          // ************************************ drop some  red bals *****************************************
+          for( var i = 0; i < falArray.length; i++)
+          { 
+              falArray[i].y += fallSpeed;  
+              }
+            //************************************ draw green balls *********************************
+              for( var i = 0; i < falArrayGreen.length; i++)
+          {  
+              drawBalls(falArrayGreen[i].x, falArrayGreen[i].y,'green'); }
+                
+          // ************************************ drop some green bals *****************************************
+          for( var i = 0; i < falArrayGreen.length; i++)
+          { 
+              falArrayGreen[i].y += fallSpeed;  
+              }
+
+            
+            //*********************** CHECK COLLISION WITH FLOOR AND catcher
+            for (var i = 0 ; i<falArrayGreen.length; i++)  //green array
+            {  
+                if(falArrayGreen[i].y + ballrad >= canvas.height && falArrayGreen[i].y + ballrad < (canvas.height + fallSpeed))
+                {   
+                    if(falArrayGreen[i].x > basketX -basketWidth/2 && falArrayGreen[i].x < basketX + basketWidth/2 )
+                    {   score++;
+                        fallSpeed++;
+                        basketSpeed++;
+                        FALLINTER -= 2/FPS;
+                    
+                        falArrayGreen.splice(i,1);
+                        console.log('scored');
+                     }
+
+                    else 
+                    {   gameLives--;
+                        falArrayGreen.splice(i,1);
+                        console.log('neg');
+                    }
+                }
+            }
+            //*********************** CHECK COLLISION WITH FLOOR AND catcher  / RED
+            for (var i = 0 ; i<falArray.length; i++)  //green array
+            {   
+                if(falArray[i].y >= canvas.height && falArray[i].y < canvas.height + 2*ballrad )
+                {   
+                    if(falArray[i].x > basketX -basketWidth/2 && falArray[i].x < basketX + basketWidth/2 )
+                    {   gameLives--;
+                        
+                        console.log('caught red');
+                        falArray.splice(i,1);
+                     }   
+                       else
+                     {falArray.splice(i,1);}          
+                }
+            }
+
+     //*********************** GAME TEXTS * ****************************************************************************                
+          ctx.fillStyle = 'salmon';
+          ctx.font =  '20px Lucida Console';
+          ctx.fillText("SCORE "+ score,20,27);
+          ctx.fillText("HIGH SCORE "+ highScore,330,27);  
+    }  
+
+     if(gameLives <= 0) //end screen
+
+        {
+          ctx.fillStyle = 'salmon';
+          ctx.font =  '20px Lucida Console ';
+          ctx.fillText("YOU RAN OUT OF LIVES AKA DEAD ",220,200);
+          ctx.fillText("YOUR HIGH SCORE IS  "+ highScore,270,250);
+          ctx.fillText("YOUR CURRENT SCORE IS  "+ score,250,300);
+
+           if(endCounter > 0 ) {endCounter--;}
+          else if( endCounter <= 0) { homeScreen =  false; gameLives = 3;endCounter = homeScreenTimer * FPS; score = 0;}
+           var text  = Math.floor(endCounter/30);
+          ctx.fillStyle = 'salmon';
+          ctx.font =  '20px Lucida Console';
+          ctx.fillText("Game restarts in " + text ,280,400);
+          
+
+          
+        }
+        if(score >= highScore)
+            {
+                highScore = score;
+                localStorage.setItem(SAVE_KEY_SCORE,highScore)
+            }
+       
+
+    
+    } //*************************** UPDATE ENDS|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+        function keyDown( /** @type {keyboardEvent}*/ ev)
+        {
+                switch(ev.keyCode)
+                {
+                case 37: { vel = -1; decel = -3; } //left
+                break;
+
+                case 39: { vel = 1; decel = 3; }//right
+                break;
+                }
+        }
+
+        function keyUp( /** @type {keyboardEvent}*/ ev)
+        {
+                switch(ev.keyCode)
+                {
+                case 37: vel = 0;
+                break;
+
+                case 39: vel = 0;
+                break;
+                }
+        }
+        
+
+        function drawBasket() //bottom rectangle
+        {   ctx.fillStyle = 'white';
+            ctx.fillRect(basketX - basketWidth/2, canvas.height-basketHeight,basketWidth,basketHeight);
+        }
+
+        function drawBalls(ballXpos,ballYpos, color) // draw falling elements
+        {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc( ballXpos ,ballYpos,ballrad,0,Math.PI*2,false);
+            ctx.fill();
+            ctx.closePath();
+        }
+
+    </script>
+    
+
+    
+</body>
+</html>
